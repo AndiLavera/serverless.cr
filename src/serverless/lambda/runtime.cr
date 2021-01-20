@@ -1,5 +1,6 @@
 require "http/client"
 require "json"
+require "./http_context"
 
 module SLS::Lambda
   class Runtime
@@ -21,7 +22,7 @@ module SLS::Lambda
     COGNITO_IDENTITY_HEADER = "Lambda-Runtime-Cognito-Identity"
     CLIENT_CONTEXT_HEADER   = "Lambda-Runtime-Client-Context"
 
-    def self.run_handler(handler : Proc(Context, JSON::Any))
+    def self.run_handler(handler : Proc(Context, Nil))
       function_name = ENV[RUNTIME_API]
       function_version = ENV[FUNCTION_VERSION]
       memory_limit_in_mb = UInt32.new(ENV[FUNCTION_MEMORY_SIZE])
@@ -45,6 +46,8 @@ module SLS::Lambda
         # Set the trace ID
         ENV[TRACE_ID] = res.headers[TRACE_ID_HEADER]? || ""
 
+        io = IO::Memory.new
+
         # Create a new context object to pass into handler
         context = Context.new(
           function_name,
@@ -57,20 +60,17 @@ module SLS::Lambda
           Int64.new(res.headers[DEADLINE_HEADER]),
           JSON.parse(res.headers[COGNITO_IDENTITY_HEADER]? || "null"),
           JSON.parse(res.headers[CLIENT_CONTEXT_HEADER]? || "null"),
-          HTTPRequest.new(JSON.parse(res.body)),
-          HTTPResponse.new
+          SLS::Lambda::HTTPRequest.new(JSON.parse(res.body)),
+          SLS::Lambda::HTTPResponse.new(io)
         )
 
         # Invoke the handler
         handler.call(context)
 
-        pp "RESPONSE"
-        pp context.response._io.to_s.split("\n").last
-
         # Return the response to AWS Lambda
         res = client.post(
-          BASE_URL + "/#{context.aws_request_id}/response",
-          body: context.response._io.to_s.split("\n").last
+          "/2018-06-01/runtime/invocation/#{context.aws_request_id}/response",
+          body: context.res.to_json
         )
 
         # Ensure AWS Lambda recieved tbe response

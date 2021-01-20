@@ -6,12 +6,10 @@ module SLS::Lambda
     property body : String | JSON::Any | Nil
     getter headers : HTTP::Headers
     property status_code : Int32?
-    getter _io : IO::Memory
 
-    def initialize(@status_code = nil, @body = nil)
+    def initialize(io : IO::Memory)
       @headers = HTTP::Headers.new
-      @_io = IO::Memory.new
-      super(_io)
+      super(io)
     end
 
     # Returns a `JSON::Any` object for passing on to AWS
