@@ -58,7 +58,7 @@ module SLS::Lambda
           JSON.parse(res.headers[COGNITO_IDENTITY_HEADER]? || "null"),
           JSON.parse(res.headers[CLIENT_CONTEXT_HEADER]? || "null"),
           HTTPRequest.new(JSON.parse(res.body)),
-          HTTPResponse.new(io)
+          HTTPResponse.new
         )
 
         # Invoke the handler
