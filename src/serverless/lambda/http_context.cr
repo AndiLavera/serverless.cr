@@ -3,11 +3,19 @@ require "json"
 
 module SLS::Lambda
   class Context < HTTP::Server::Context
+    # The name of the lambda function
     getter function_name : String
+
+    # The current function version
     getter function_version : String
+
+    # The memory limit currently allocated to this function in Megabytes
     getter memory_limit_in_mb : UInt32
+
     getter log_group_name : String
     getter log_stream_name : String
+
+    # The current request id from aws
     getter aws_request_id : String
     getter invoked_function_arn : String
     getter deadline_ms : Int64
