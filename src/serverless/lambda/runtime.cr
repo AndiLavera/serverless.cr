@@ -6,6 +6,13 @@ require "./http_response"
 module SLS
   module Lambda
     class Runtime
+      HANDLER           = "_HANDLER"
+      TRACE_ID          = "_X_AMZN_TRACE_ID"
+      TRACE_ID_HEADER   = "Lambda-Runtime-Trace-Id"
+      REQUEST_ID_HEADER = "Lambda-Runtime-Aws-Request-Id"
+      RUNTIME_BASE_URL  = "/2018-06-01/runtime/invocation"
+      RUNTIME_API_URL   = RUNTIME_BASE_URL + "/next"
+
       getter host : String
       getter port : Int16
       getter handlers : Hash(String, (JSON::Any -> JSON::Any)) = Hash(String, (JSON::Any -> JSON::Any)).new
@@ -17,7 +24,7 @@ module SLS
         @host = api[0]
         @port = api[1].to_i16
 
-        # easier to read logging within the lambda, includes the handler name
+        # Format logs specifically for Lambda
         backend ||= ::Log::IOBackend.new(formatter: Lambda.formatter)
         Lambda::Log.setup do |c|
           c.bind "serverless.lambda", level, backend
@@ -37,7 +44,7 @@ module SLS
       end
 
       def process_handler
-        handler_name = ENV["_HANDLER"]
+        handler_name = ENV[HANDLER]
 
         if handlers.has_key?(handler_name)
           _process_request handlers[handler_name]
@@ -52,25 +59,27 @@ module SLS
         client = HTTP::Client.new(host: @host, port: @port)
 
         begin
-          response = client.get "/2018-06-01/runtime/invocation/next"
-          ENV["_X_AMZN_TRACE_ID"] = response.headers["Lambda-Runtime-Trace-Id"] || ""
+          response = client.get RUNTIME_API_URL
+          ENV[TRACE_ID] = response.headers[TRACE_ID_HEADER] || ""
 
-          aws_request_id = response.headers["Lambda-Runtime-Aws-Request-Id"]
-          base_url = "/2018-06-01/runtime/invocation/#{aws_request_id}"
+          aws_request_id = response.headers[REQUEST_ID_HEADER]
+          base_url = RUNTIME_BASE_URL + "/#{aws_request_id}"
 
           input = JSON.parse response.body
+
           body = proc.call input
 
           logger.info { "preparing body #{body}" }
-
           response = client.post("#{base_url}/response", body: body.to_json)
-
           logger.debug { "response invocation response #{response.status_code} #{response.body}" }
-        rescue ex
+        rescue ex : Exception
           body = %Q({ "statusCode": 500, "body" : "#{ex.message}" })
           response = client.post("#{base_url}/error", body: body)
-          Log.error { "response error invocation response from exception " \
-                      "#{ex.message} #{response.status_code} #{response.body}" }
+
+          Log.error {
+            "response error invocation response from exception " \
+            "#{ex.message} #{response.status_code} #{response.body}"
+          }
         ensure
           client.close
         end

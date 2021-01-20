@@ -2,13 +2,14 @@ require "http"
 require "json"
 
 module SLS::Lambda
-  class HTTPResponse
+  class HTTPResponse < HTTP::Server::Response
     property body : String | JSON::Any | Nil
     getter headers : HTTP::Headers
     getter status_code
 
     def initialize(@status_code = 200, @body = nil)
       @headers = HTTP::Headers.new
+      super(IO::Memory.new)
     end
 
     # Returns a `JSON::Any` object for passing on to AWS

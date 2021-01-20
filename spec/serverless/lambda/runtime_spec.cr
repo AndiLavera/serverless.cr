@@ -15,7 +15,7 @@ end
 
 describe SLS::Lambda::Runtime do
   io = IO::Memory.new
-  logger = Log::IOBackend.new
+  backend = Log::IOBackend.new
 
   Spec.before_each do
     WebMock.reset
@@ -26,13 +26,13 @@ describe SLS::Lambda::Runtime do
 
   it "can read the runtime API from the environment" do
     ENV["AWS_LAMBDA_RUNTIME_API"] = "my-host:12345"
-    runtime = SLS::Lambda::Runtime.new(level: Log::Severity::Info)
+    runtime = SLS::Lambda::Runtime.new(backend, Log::Severity::Info)
     runtime.host.should eq "my-host"
     runtime.port.should eq 12345
   end
 
   it "should be able to register a handler" do
-    runtime = SLS::Lambda::Runtime.new(level: Log::Severity::Info)
+    runtime = SLS::Lambda::Runtime.new(backend, Log::Severity::Info)
     # handler = do |_input| JSON.parse SLS::Lambda::HTTPResponse.new(200).to_json end
     runtime.register_handler("my_handler") do |_input|
       JSON.parse(%q({ "foo" : "bar"}))
@@ -50,7 +50,7 @@ describe SLS::Lambda::Runtime do
       HTTP::Client::Response.new(202)
     end
 
-    runtime = SLS::Lambda::Runtime.new(level: Log::Severity::Info)
+    runtime = SLS::Lambda::Runtime.new(backend, Log::Severity::Info)
     runtime.register_handler("my_handler") do
       JSON.parse(%q({ "foo" : "bar" }))
     end
@@ -71,7 +71,7 @@ describe SLS::Lambda::Runtime do
       HTTP::Client::Response.new(202)
     end
 
-    runtime = SLS::Lambda::Runtime.new(level: Log::Severity::Info)
+    runtime = SLS::Lambda::Runtime.new(backend, Log::Severity::Info)
     runtime.register_handler("my_handler") do
       response = SLS::Lambda::HTTPResponse.new(200, "text body")
       response.headers["Content-Type"] = "application/text"
@@ -92,7 +92,7 @@ describe SLS::Lambda::Runtime do
       HTTP::Client::Response.new(202)
     end
 
-    runtime = SLS::Lambda::Runtime.new(level: Log::Severity::Info)
+    runtime = SLS::Lambda::Runtime.new(backend, Log::Severity::Info)
     runtime.register_handler("my_handler") do
       raise "anything"
     end
@@ -108,7 +108,7 @@ describe SLS::Lambda::Runtime do
       HTTP::Client::Response.new(202)
     end
 
-    runtime = SLS::Lambda::Runtime.new(level: Log::Severity::Info)
+    runtime = SLS::Lambda::Runtime.new(backend, Log::Severity::Info)
     runtime.register_handler("my_handler") do
       JSON.parse "{}"
     end
