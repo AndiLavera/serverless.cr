@@ -5,9 +5,9 @@ module SLS::Lambda
   class HTTPResponse < HTTP::Server::Response
     property body : String | JSON::Any | Nil
     getter headers : HTTP::Headers
-    getter status_code
+    property status_code : Int32?
 
-    def initialize(@status_code = 200, @body = nil)
+    def initialize(@status_code = nil, @body = nil)
       @headers = HTTP::Headers.new
       super(IO::Memory.new)
     end
@@ -16,7 +16,7 @@ module SLS::Lambda
     def as_json : JSON::Any
       json = Hash(String, JSON::Any).new
 
-      json["statusCode"] = JSON::Any.new status_code.to_i64
+      json["statusCode"] = JSON::Any.new (code = status_code) ? code.to_i64 : 500.to_i64
 
       if !body.nil?
         json["body"] = (body.class == JSON::Any ? body.as(JSON::Any) : JSON::Any.new(body.as(String)))
