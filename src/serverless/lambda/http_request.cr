@@ -1,7 +1,7 @@
 require "http"
 require "json"
 
-module Lambda::Builder
+module SLS::Lambda
   class HTTPRequest < HTTP::Request
     getter request_context : Hash(String, JSON::Any)
     getter handler : String
@@ -17,11 +17,11 @@ module Lambda::Builder
 
       path = body["path"].as_s
       if (body["queryStringParameters"]? && body["queryStringParameters"].as_h?)
-        qs = Hash(String, String).new
+        query = Hash(String, String).new
         body["queryStringParameters"].as_h.each do |key, value|
-          qs[key] = value.to_s
+          query[key] = value.to_s
         end
-        path += "?" + HTTP::Params.encode qs
+        path += "?" + HTTP::Params.encode query
       end
 
       super(body["httpMethod"].as_s, path, headers, request_body, internal: nil)

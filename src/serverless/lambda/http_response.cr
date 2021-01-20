@@ -1,7 +1,7 @@
 require "http"
 require "json"
 
-module Lambda::Builder
+module SLS::Lambda
   class HTTPResponse
     property body : String | JSON::Any | Nil
     getter headers : HTTP::Headers

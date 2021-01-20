@@ -1,7 +1,7 @@
 require "spec"
 require "webmock"
 
-require "../src/lambda_builder"
+require "../src/serverless/lambda"
 
 def request_body
   <<-END

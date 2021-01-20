@@ -1,14 +1,21 @@
 require "spec"
-require "../spec_helper"
+require "../../spec_helper"
 
 def mock_next_invocation(body : String)
   WebMock.stub(:get, "http://localhost/2018-06-01/runtime/invocation/next")
-    .to_return(status: 200, body: body, headers: {"Lambda-Runtime-Aws-Request-Id" => "54321", "Lambda-Runtime-Trace-Id" => "TRACE-ID", "Content-Type": "application/json"})
+    .to_return(
+      status: 200,
+      body: body,
+      headers: {
+        "Lambda-Runtime-Aws-Request-Id" => "54321",
+        "Lambda-Runtime-Trace-Id" => "TRACE-ID", "Content-Type": "application/json",
+      },
+    )
 end
 
-describe Lambda::Builder::Runtime do
+describe SLS::Lambda::Runtime do
   io = IO::Memory.new
-  logger = Logger.new(io, level: Logger::INFO)
+  logger = Log::IOBackend.new
 
   Spec.before_each do
     WebMock.reset
@@ -19,14 +26,14 @@ describe Lambda::Builder::Runtime do
 
   it "can read the runtime API from the environment" do
     ENV["AWS_LAMBDA_RUNTIME_API"] = "my-host:12345"
-    runtime = Lambda::Builder::Runtime.new(logger)
+    runtime = SLS::Lambda::Runtime.new(level: Log::Severity::Info)
     runtime.host.should eq "my-host"
     runtime.port.should eq 12345
   end
 
   it "should be able to register a handler" do
-    runtime = Lambda::Builder::Runtime.new(logger)
-    # handler = do |_input| JSON.parse Lambda::Builder::HTTPResponse.new(200).to_json end
+    runtime = SLS::Lambda::Runtime.new(level: Log::Severity::Info)
+    # handler = do |_input| JSON.parse SLS::Lambda::HTTPResponse.new(200).to_json end
     runtime.register_handler("my_handler") do |_input|
       JSON.parse(%q({ "foo" : "bar"}))
     end
@@ -43,7 +50,7 @@ describe Lambda::Builder::Runtime do
       HTTP::Client::Response.new(202)
     end
 
-    runtime = Lambda::Builder::Runtime.new(logger)
+    runtime = SLS::Lambda::Runtime.new(level: Log::Severity::Info)
     runtime.register_handler("my_handler") do
       JSON.parse(%q({ "foo" : "bar" }))
     end
@@ -64,9 +71,9 @@ describe Lambda::Builder::Runtime do
       HTTP::Client::Response.new(202)
     end
 
-    runtime = Lambda::Builder::Runtime.new(logger)
+    runtime = SLS::Lambda::Runtime.new(level: Log::Severity::Info)
     runtime.register_handler("my_handler") do
-      response = Lambda::Builder::HTTPResponse.new(200, "text body")
+      response = SLS::Lambda::HTTPResponse.new(200, "text body")
       response.headers["Content-Type"] = "application/text"
       JSON.parse response.to_json
     end
@@ -85,7 +92,7 @@ describe Lambda::Builder::Runtime do
       HTTP::Client::Response.new(202)
     end
 
-    runtime = Lambda::Builder::Runtime.new(logger)
+    runtime = SLS::Lambda::Runtime.new(level: Log::Severity::Info)
     runtime.register_handler("my_handler") do
       raise "anything"
     end
@@ -101,7 +108,7 @@ describe Lambda::Builder::Runtime do
       HTTP::Client::Response.new(202)
     end
 
-    runtime = Lambda::Builder::Runtime.new(logger)
+    runtime = SLS::Lambda::Runtime.new(level: Log::Severity::Info)
     runtime.register_handler("my_handler") do
       JSON.parse "{}"
     end
