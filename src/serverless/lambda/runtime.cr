@@ -58,16 +58,19 @@ module SLS::Lambda
           JSON.parse(res.headers[COGNITO_IDENTITY_HEADER]? || "null"),
           JSON.parse(res.headers[CLIENT_CONTEXT_HEADER]? || "null"),
           HTTPRequest.new(JSON.parse(res.body)),
-          HTTPResponse.new
+          HTTPResponse.new(io)
         )
 
         # Invoke the handler
-        result = handler.call(context)
+        handler.call(context)
+
+        pp "RESPONSE"
+        pp context.response._io.to_s.split("\n").last
 
         # Return the response to AWS Lambda
         res = client.post(
           BASE_URL + "/#{context.aws_request_id}/response",
-          body: result.to_json
+          body: context.response._io.to_s.split("\n").last
         )
 
         # Ensure AWS Lambda recieved tbe response
