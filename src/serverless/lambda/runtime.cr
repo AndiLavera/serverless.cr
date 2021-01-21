@@ -34,6 +34,7 @@ module SLS::Lambda
       # lifetime of the function.
       client = HTTP::Client.new(host, port)
 
+      # ameba:disable Style/WhileTrue
       while true
         # Fetch the request of AWS Lambda
         res = client.get(NEXT_URL)
@@ -76,6 +77,7 @@ module SLS::Lambda
           raise "Unexpected response when responding: #{res.status_code}"
         end
       end
+      # ameba:enable Style/WhileTrue
     end
   end
 end
