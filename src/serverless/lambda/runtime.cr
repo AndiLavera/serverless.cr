@@ -46,8 +46,6 @@ module SLS::Lambda
         # Set the trace ID
         ENV[TRACE_ID] = res.headers[TRACE_ID_HEADER]? || ""
 
-        io = IO::Memory.new
-
         # Create a new context object to pass into handler
         context = Context.new(
           function_name,
@@ -61,7 +59,7 @@ module SLS::Lambda
           JSON.parse(res.headers[COGNITO_IDENTITY_HEADER]? || "null"),
           JSON.parse(res.headers[CLIENT_CONTEXT_HEADER]? || "null"),
           SLS::Lambda::HTTPRequest.new(JSON.parse(res.body)),
-          SLS::Lambda::HTTPResponse.new(io)
+          SLS::Lambda::HTTPResponse.new
         )
 
         # Invoke the handler

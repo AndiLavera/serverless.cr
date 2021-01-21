@@ -3,13 +3,29 @@ require "json"
 
 module SLS::Lambda
   class HTTPResponse < HTTP::Server::Response
-    property body : String | JSON::Any | Nil
-    getter headers : HTTP::Headers
-    property status_code : Int32?
+    # Allows accessing the response body directly.
+    @body_io : IO = IO::Memory.new
 
-    def initialize(io : IO::Memory)
+    # Setter to allow `ctx.res.body = something`. Specifically
+    # used for frameworks that don't mutate the `body` such
+    # as the Athena extension.
+    setter body : String | JSON::Any | Nil
+
+    def initialize(io = IO::Memory.new)
       @headers = HTTP::Headers.new
-      super(io)
+
+      super
+    end
+
+    def write(slice : Bytes) : Nil
+      @body_io.write slice
+
+      super
+    end
+
+    # Allows accessing the response body directly.
+    def body : String | JSON::Any
+      @body ||= @body_io.to_s
     end
 
     # Returns a `JSON::Any` object for passing on to AWS
@@ -29,10 +45,10 @@ module SLS::Lambda
 
     def to_json(json : JSON::Builder)
       json.object do
-        json.field "statusCode", @status_code
+        json.field "statusCode", status_code
 
-        if !@body.nil?
-          json.field "body", @body
+        if !body.nil?
+          json.field "body", body
         end
 
         json.field "headers" do
