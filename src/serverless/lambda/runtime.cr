@@ -1,89 +1,94 @@
-require "http"
-require "log"
-require "./http_request"
-require "./http_response"
+require "http/client"
+require "json"
+require "./http_context"
 
-module SLS
-  module Lambda
-    class Runtime
-      HANDLER           = "_HANDLER"
-      TRACE_ID          = "_X_AMZN_TRACE_ID"
-      TRACE_ID_HEADER   = "Lambda-Runtime-Trace-Id"
-      REQUEST_ID_HEADER = "Lambda-Runtime-Aws-Request-Id"
-      RUNTIME_BASE_URL  = "/2018-06-01/runtime/invocation"
-      RUNTIME_API_URL   = RUNTIME_BASE_URL + "/next"
+module SLS::Lambda
+  class Runtime
+    # AWS Lambda Environment Variables
+    RUNTIME_API          = "AWS_LAMBDA_RUNTIME_API"
+    FUNCTION_VERSION     = "AWS_LAMBDA_FUNCTION_VERSION"
+    FUNCTION_MEMORY_SIZE = "AWS_LAMBDA_FUNCTION_MEMORY_SIZE"
+    LOG_GROUP_NAME       = "AWS_LAMBDA_LOG_GROUP_NAME"
+    LOG_STREAM_NAME      = "AWS_LAMBDA_LOG_STREAM_NAME"
 
-      getter host : String
-      getter port : Int16
-      getter handlers : Hash(String, (JSON::Any -> JSON::Any)) = Hash(String, (JSON::Any -> JSON::Any)).new
-      getter logger : ::Log
+    # AWS Lambda request variables
+    BASE_URL                = "/2018-06-01/runtime/invocation"
+    NEXT_URL                = BASE_URL + "/next"
+    TRACE_ID                = "_X_AMZN_TRACE_ID"
+    TRACE_ID_HEADER         = "Lambda-Runtime-Trace-Id"
+    REQUEST_ID_HEADER       = "Lambda-Runtime-Aws-Request-Id"
+    FUNCTION_ARN_HEADER     = "Lambda-Runtime-Invoked-Function-Arn"
+    DEADLINE_HEADER         = "Lambda-Runtime-Deadline-Ms"
+    COGNITO_IDENTITY_HEADER = "Lambda-Runtime-Cognito-Identity"
+    CLIENT_CONTEXT_HEADER   = "Lambda-Runtime-Client-Context"
 
-      def initialize(backend : ::Log::IOBackend? = nil, level = ::Log::Severity::Debug)
-        api = ENV["AWS_LAMBDA_RUNTIME_API"].split(":", 2)
+    # Used for testing so only 1 iteration occurrs
+    @@break_loop = false
 
-        @host = api[0]
-        @port = api[1].to_i16
+    def self.break_loop=(val : Bool)
+      @@break_loop = val
+    end
 
-        # Format logs specifically for Lambda
-        backend ||= ::Log::IOBackend.new(formatter: Lambda.formatter)
-        Lambda::Log.setup do |c|
-          c.bind "serverless.lambda", level, backend
+    def self.run_handler(handler : Proc(Context, Nil))
+      function_name = ENV[RUNTIME_API]
+      function_version = ENV[FUNCTION_VERSION]
+      memory_limit_in_mb = UInt32.new(ENV[FUNCTION_MEMORY_SIZE])
+      log_group_name = ENV[LOG_GROUP_NAME]
+      log_stream_name = ENV[LOG_STREAM_NAME]
+      host, port = ENV[RUNTIME_API].split(':')
+
+      # Instaniate the http client that we will use for the
+      # lifetime of the function.
+      client = HTTP::Client.new(host, port)
+
+      # ameba:disable Style/WhileTrue
+      while true
+        # Fetch the request of AWS Lambda
+        res = client.get(NEXT_URL)
+
+        # Ensure the request is a 200
+        if res.status_code != 200
+          raise "Unexpected response when invoking: #{res.status_code}"
         end
-        @logger = Lambda::Log.for("serverless.lambda")
-      end
 
-      # Associate the block/proc to the function name
-      def register_handler(name : String, &handler : JSON::Any -> JSON::Any)
-        self.handlers[name] = handler
-      end
+        # Set the trace ID
+        ENV[TRACE_ID] = res.headers[TRACE_ID_HEADER]? || ""
 
-      def run
-        loop do
-          process_handler
+        # Create a new context object to pass into handler
+        context = Context.new(
+          function_name,
+          function_version,
+          memory_limit_in_mb,
+          log_group_name,
+          log_stream_name,
+          res.headers[REQUEST_ID_HEADER],
+          res.headers[FUNCTION_ARN_HEADER],
+          Int64.new(res.headers[DEADLINE_HEADER]),
+          JSON.parse(res.headers[COGNITO_IDENTITY_HEADER]? || "null"),
+          JSON.parse(res.headers[CLIENT_CONTEXT_HEADER]? || "null"),
+          host,
+          port,
+          SLS::Lambda::HTTPRequest.new(JSON.parse(res.body)),
+          SLS::Lambda::HTTPResponse.new
+        )
+
+        # Invoke the handler
+        handler.call(context)
+
+        # Return the response to AWS Lambda
+        res = client.post(
+          "/2018-06-01/runtime/invocation/#{context.aws_request_id}/response",
+          body: context.res.to_json
+        )
+
+        # Ensure AWS Lambda recieved tbe response
+        if res.status_code != 202
+          raise "Unexpected response when responding: #{res.status_code}"
         end
+
+        break if @@break_loop
       end
-
-      def process_handler
-        handler_name = ENV[HANDLER]
-
-        if handlers.has_key?(handler_name)
-          _process_request handlers[handler_name]
-        else
-          logger.error {
-            "unknown handler: #{handler_name}, available handlers: #{handlers.keys.join(", ")}"
-          }
-        end
-      end
-
-      def _process_request(proc : Proc(JSON::Any, JSON::Any))
-        client = HTTP::Client.new(host: @host, port: @port)
-
-        begin
-          response = client.get RUNTIME_API_URL
-          ENV[TRACE_ID] = response.headers[TRACE_ID_HEADER] || ""
-
-          aws_request_id = response.headers[REQUEST_ID_HEADER]
-          base_url = RUNTIME_BASE_URL + "/#{aws_request_id}"
-
-          input = JSON.parse response.body
-
-          body = proc.call input
-
-          logger.info { "preparing body #{body}" }
-          response = client.post("#{base_url}/response", body: body.to_json)
-          logger.debug { "response invocation response #{response.status_code} #{response.body}" }
-        rescue ex : Exception
-          body = %Q({ "statusCode": 500, "body" : "#{ex.message}" })
-          response = client.post("#{base_url}/error", body: body)
-
-          Log.error {
-            "response error invocation response from exception " \
-            "#{ex.message} #{response.status_code} #{response.body}"
-          }
-        ensure
-          client.close
-        end
-      end
+      # ameba:enable Style/WhileTrue
     end
   end
 end

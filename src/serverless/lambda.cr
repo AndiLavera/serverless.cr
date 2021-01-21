@@ -1,4 +1,4 @@
-require "./lambda/*"
+require "./lambda/runtime"
 
 module SLS::Lambda
   Log = ::Log

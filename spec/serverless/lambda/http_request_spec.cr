@@ -5,6 +5,7 @@ describe SLS::Lambda::HTTPRequest do
     ENV["_HANDLER"] = "foo"
     input = JSON.parse(request_body)
     req = SLS::Lambda::HTTPRequest.new(input)
+
     req.method.should eq "POST"
     req.path.should eq "/hello"
     req.headers["User-Agent"].should eq "curl/7.54.0"
@@ -28,12 +29,21 @@ describe SLS::Lambda::HTTPRequest do
   end
 
   it "supports JSON serialization/deserialization" do
-    body = %q({ "path" : "/test", "httpMethod" : "GET", "headers" : { "key": "value" }, "requestContext" : {} })
     ENV["_HANDLER"] = "my_handler"
+    body = %q({
+      "path" : "/test",
+      "httpMethod" : "GET",
+      "headers" : {
+        "key": "value"
+      },
+      "requestContext" : {}
+    })
+
     input = JSON.parse body
     req = SLS::Lambda::HTTPRequest.new(input)
     json = req.to_json
     parsed_req = SLS::Lambda::HTTPRequest.from_json json.to_s
+
     req.headers.should eq parsed_req.headers
     req.to_json.should eq parsed_req.to_json
     req.method.should eq parsed_req.method

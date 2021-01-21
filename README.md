@@ -1,6 +1,6 @@
 # crystal-aws-lambda
 
-A small library to simplify running lambdas written in [crystallang](https://crystal-lang.org/). Not production ready, just an evening hack!
+Serverless runtime for [crystallang](https://crystal-lang.org/). Currently, only AWS Lambda is supported but PR's for other services are welcome.
 
 ## Installation
 
@@ -8,43 +8,28 @@ You can include this as a dependency in your project in `shards.yml` file
 
 ```
 dependencies:
-  lambda_builder:
-    github: spinscale/crystal-aws-lambda
+  serverless:
+    github: andrewc910/serverless.cr
     branch: master
 ```
 
 Now run the the `shards` command to download the dependency. You can now create your own lambda handlers like this
 
-
 ```crystal
-require "lambda_builder"
+require "json"
+require "serverless/lambda"
 
-runtime = Lambda::Builder::Runtime.new
+def self.handler(ctx : SLS::Lambda::Context) : Nil
+  response = do_something
 
-runtime.register_handler("httpevent") do |input|
-  req = Lambda::Builder::HTTPRequest.new(input)
-  user = req.query_params.fetch("hello", "World")
-  response = Lambda::Builder::HTTPResponse.new(200, "Hello #{user} from Crystal")
-  # not super efficient, serializing to JSON string and then parsing, simplify this
-  JSON.parse response.to_json
+  ctx.res.body = response.content
+  ctx.res.status_code = response.status_code
 end
 
-runtime.register_handler("scheduledevent") do |input|
-  runtime.logger.debug("Hello from scheduled event, input: #{input}")
-  JSON.parse "{}"
-end
-
-runtime.register_handler("snsevent") do |input|
-  runtime.logger.info("SNSEvent input: #{input}")
-  JSON.parse "{}"
-end
-
-runtime.run
+SLS::Lambda::Runtime.run_handler(->handler(SLS::Lambda::Context))
 ```
 
-The `input` variable is of type `JSON::Any` and represents the JSON handed over by the lambda event.
-
-There is a helper class to create a HTTP request from the input, no need to do that manually.
+The `ctx` variable is of type `SLS::Lambda::Context` which inherits from `HTTP::Server::Context`. Due to the nature of the compiler, `ctx.request` & `ctx.response` are types `HTTP::Request+` & `HTTP::Server::Response+` while `ctx.req` & `ctx.res` are types `SLS::Lambda:HTTPRequest` & `SLS::Lambda:HTTPResponse`. Make sure to set the body and status code using `ctx.res` otherwise you will run into compilation errors.
 
 ## Deployment
 
@@ -68,21 +53,6 @@ functions:
           memorySize: 128
           path: hello
           method: get
-
-  snsevent:
-    handler: snsevent
-    memorySize: 128
-    events:
-      - sns: my-sns-topic
-
-  scheduledevent:
-    handler: scheduledevent
-    memorySize: 128
-    events:
-      - schedule:
-          rate: rate(10 minutes)
-          input:
-            hello: world
 ```
 
 If you are using osx, make sure you are building your app using docker, as an AWS lambda runtime environment is based on Linux. You can create a linux binary using docker like this
@@ -102,20 +72,39 @@ In order to monitor executions you can check the corresponding function logs lik
 
 ```
 sls logs -f httpevent -t
-sls logs -f snsevent -t
-sls logs -f scheduledevent -t
 ```
 
 you can also get some very simple metrics per functions (this might require additional permissions)
 
 ```
 sls metrics -f httpevent
-sls metrics -f snsevent
-sls metrics -f scheduledevent
 ```
+
+## Supported Frameworks
+
+Serverless.cr is looking to support crytal frameworks out of the box. We currently support Athena but PR's are welcome!
+
+### Athena
+
+```crystal
+require "json"
+require "Athena"
+require "serverless/lambda"
+require "serverless/ext/athena"
+
+# Run the server
+if ENV["SERVERLESS"]?
+  SLS::Lambda::Runtime.run_handler(->SLS::Ext::Athena.handler(SLS::Lambda::Context))
+else
+  ART.run
+end
+```
+
+The example above will run Athenas HTTP server when the environment variable `SERVERLESS` is not set aka dev environments. In AWS lambda, ensure you set the env var `SERVERLESS` to `true` to ensure the lambda runtime is intialized.
 
 ## Example
 
+TODO:
 If you want to get up and running with an example, run the following commands
 
 ```
@@ -131,10 +120,9 @@ sls deploy
 
 This will start a sample runtime, that includes a HTTP endpoint, a scheduled event and an SQS listening event.
 
-
 ## Contributing
 
-1. Fork it (<https://github.com/spinscale/crystal-aws-lambda/fork>)
+1. Fork it (<https://github.com/andrewc910/crystal-aws-lambda/fork>)
 2. Create your feature branch (`git checkout -b my-new-feature`)
 3. Commit your changes (`git commit -am 'Add some feature'`), also run `bin/ameba`
 4. Push to the branch (`git push origin my-new-feature`)
@@ -143,4 +131,5 @@ This will start a sample runtime, that includes a HTTP endpoint, a scheduled eve
 
 ## Contributors
 
+- [Andrew Crotwell](https://github.com/andrewc910) - maintainer
 - [Alexander Reelsen](https://github.com/spinscale) - creator and maintainer
