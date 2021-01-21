@@ -82,9 +82,13 @@ sls metrics -f httpevent
 
 ## Supported Frameworks
 
-Serverless.cr is looking to support crytal frameworks out of the box. We currently support Athena but PR's are welcome!
+Serverless.cr is looking to support crytal frameworks out of the box. We currently support Athena & Lucky but PR's are welcome!
+
+> Note: The examples below will run the frameworks HTTP server when the environment variable `SERVERLESS` is not set aka dev environments. In AWS lambda, ensure you set the env var `SERVERLESS` to `true` to ensure the lambda runtime is intialized and not the HTTP server.
 
 ### Athena
+
+Your main entry file for Athena should look like this:
 
 ```crystal
 require "json"
@@ -100,7 +104,35 @@ else
 end
 ```
 
-The example above will run Athenas HTTP server when the environment variable `SERVERLESS` is not set aka dev environments. In AWS lambda, ensure you set the env var `SERVERLESS` to `true` to ensure the lambda runtime is intialized.
+### Lucky
+
+Open `start_server.cr` include these changes:
+
+```crystal
+require "./app"
+require "serverless/lambda"
+require "serverless/ext/lucky"
+
+Habitat.raise_if_missing_settings!
+
+if Lucky::Env.development?
+  Avram::Migrator::Runner.new.ensure_migrated!
+  Avram::SchemaEnforcer.ensure_correct_column_mappings!
+end
+
+app_server = AppServer.new
+
+if ENV["SERVERLESS"]?
+  SLS::Ext::Lucky.handler(app_server)
+else
+  Signal::INT.trap do
+    app_server.close
+  end
+
+  puts "Listening on http://#{app_server.host}:#{app_server.port}"
+  app_server.listen
+end
+```
 
 ## Example
 
