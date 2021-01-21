@@ -158,6 +158,8 @@ sls deploy
 mv ../lib ./
 ```
 
+TODO: Update zip command to ignore `.serverless`, `.git`, `lib`, `spec`, `tasks`, `script` and any other folder that wouldn't be needed for lucky to start up.
+
 ## Example
 
 TODO:
