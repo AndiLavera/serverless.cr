@@ -134,6 +134,30 @@ else
 end
 ```
 
+> Note: If you require auxiliary assets, ensure you zip the entire lucky folder and not just the binary. You will have to move `lib` out before zipping as zip doesn't play nice with system links.
+
+Here is a command list to get you started. These assume you are in your project directory.
+
+```sh
+# Create the binary
+docker run --rm -it -v $PWD:/app -w /app crystallang/crystal:latest crystal build src/start_server.cr -o bin/bootstrap --release --static --no-debug
+
+# Move the binary `bootstrap` to the top level
+mv ./bin/bootstrap ./
+
+# Move lib out of your dir
+mv ./lib ../
+
+# Zip everything. -r is for recurse folders
+zip -r ./
+
+# Deploy
+sls deploy
+
+# Move the lib folder back in so you don't need to reinstall shards
+mv ../lib ./
+```
+
 ## Example
 
 TODO:
@@ -154,7 +178,7 @@ This will start a sample runtime, that includes a HTTP endpoint, a scheduled eve
 
 ## Contributing
 
-1. Fork it (<https://github.com/andrewc910/crystal-aws-lambda/fork>)
+1. Fork it (<https://github.com/andrewc910/serverless.cr/fork>)
 2. Create your feature branch (`git checkout -b my-new-feature`)
 3. Commit your changes (`git commit -am 'Add some feature'`), also run `bin/ameba`
 4. Push to the branch (`git push origin my-new-feature`)
