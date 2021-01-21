@@ -22,6 +22,13 @@ module SLS::Lambda
     COGNITO_IDENTITY_HEADER = "Lambda-Runtime-Cognito-Identity"
     CLIENT_CONTEXT_HEADER   = "Lambda-Runtime-Client-Context"
 
+    # Used for testing so only 1 iteration occurrs
+    @@break_loop = false
+
+    def self.break_loop=(val : Bool)
+      @@break_loop = val
+    end
+
     def self.run_handler(handler : Proc(Context, Nil))
       function_name = ENV[RUNTIME_API]
       function_version = ENV[FUNCTION_VERSION]
@@ -59,6 +66,8 @@ module SLS::Lambda
           Int64.new(res.headers[DEADLINE_HEADER]),
           JSON.parse(res.headers[COGNITO_IDENTITY_HEADER]? || "null"),
           JSON.parse(res.headers[CLIENT_CONTEXT_HEADER]? || "null"),
+          host,
+          port,
           SLS::Lambda::HTTPRequest.new(JSON.parse(res.body)),
           SLS::Lambda::HTTPResponse.new
         )
@@ -76,6 +85,8 @@ module SLS::Lambda
         if res.status_code != 202
           raise "Unexpected response when responding: #{res.status_code}"
         end
+
+        break if @@break_loop
       end
       # ameba:enable Style/WhileTrue
     end

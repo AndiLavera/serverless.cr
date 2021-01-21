@@ -24,13 +24,16 @@ module SLS::Lambda
     getter identity : JSON::Any
     getter client_context : JSON::Any
 
+    getter host : String
+    getter port : String
+
     getter req : HTTPRequest
     getter res : HTTPResponse
 
     def initialize(@function_name, @function_version, @memory_limit_in_mb,
                    @log_group_name, @log_stream_name, @aws_request_id, @invoked_function_arn,
-                   @deadline_ms, @identity, @client_context, @req : HTTPRequest,
-                   @res : HTTPResponse)
+                   @deadline_ms, @identity, @client_context, @host, @port,
+                   @req : HTTPRequest, @res : HTTPResponse)
       super(@req, @res)
     end
 

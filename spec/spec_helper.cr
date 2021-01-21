@@ -116,3 +116,12 @@ def request_body
   }
 END
 end
+
+def set_runtime_env_var
+  ENV["_HANDLER"] = "my_handler"
+  ENV[SLS::Lambda::Runtime::RUNTIME_API] = "localhost:80"
+  ENV[SLS::Lambda::Runtime::FUNCTION_VERSION] = "7.0"
+  ENV[SLS::Lambda::Runtime::FUNCTION_MEMORY_SIZE] = "1000"
+  ENV[SLS::Lambda::Runtime::LOG_GROUP_NAME] = "my_log_group"
+  ENV[SLS::Lambda::Runtime::LOG_STREAM_NAME] = "my_stream_group"
+end
