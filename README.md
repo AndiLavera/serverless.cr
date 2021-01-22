@@ -31,6 +31,60 @@ SLS::Lambda::Runtime.run_handler(->handler(SLS::Lambda::Context))
 
 The `ctx` variable is of type `SLS::Lambda::Context` which inherits from `HTTP::Server::Context`. Due to the nature of the compiler, `ctx.request` & `ctx.response` are types `HTTP::Request+` & `HTTP::Server::Response+` while `ctx.req` & `ctx.res` are types `SLS::Lambda:HTTPRequest` & `SLS::Lambda:HTTPResponse`. Make sure to set the body and status code using `ctx.res` otherwise you will run into compilation errors.
 
+### Supported Frameworks
+
+Serverless.cr is looking to support crytal frameworks out of the box. We currently support Athena & Lucky but PR's are welcome!
+
+> Note: The examples below will run the frameworks HTTP server when the environment variable `SERVERLESS` is not set aka dev environments. In AWS lambda, ensure you set the env var `SERVERLESS` to `true` to ensure the lambda runtime is intialized and not the HTTP server.
+
+#### Athena
+
+Your main entry file for Athena should look like this:
+
+```crystal
+require "json"
+require "Athena"
+require "serverless/lambda"
+require "serverless/ext/athena"
+
+# Run the server
+if ENV["SERVERLESS"]?
+  SLS::Lambda::Runtime.run_handler(->SLS::Ext::Athena.handler(SLS::Lambda::Context))
+else
+  ART.run
+end
+```
+
+#### Lucky
+
+Open `start_server.cr` include these changes:
+
+```crystal
+require "./app"
+require "serverless/lambda"
+require "serverless/ext/lucky"
+
+Habitat.raise_if_missing_settings!
+
+if Lucky::Env.development?
+  Avram::Migrator::Runner.new.ensure_migrated!
+  Avram::SchemaEnforcer.ensure_correct_column_mappings!
+end
+
+app_server = AppServer.new
+
+if ENV["SERVERLESS"]?
+  SLS::Ext::Lucky.handler(app_server)
+else
+  Signal::INT.trap do
+    app_server.close
+  end
+
+  puts "Listening on http://#{app_server.host}:#{app_server.port}"
+  app_server.listen
+end
+```
+
 ## Deployment
 
 Make sure the [serverless framework](https://serverless.com/) is set up properly. The next step is to create a proper serverless configuration file like this
@@ -61,12 +115,43 @@ If you are using osx, make sure you are building your app using docker, as an AW
 docker run --rm -it -v $PWD:/app -w /app crystallang/crystal:latest crystal build src/bootstrap.cr -o bin/bootstrap --release --static --no-debug
 ```
 
+### Single Binary Deployment
+
 Now package the zip file required for deployment and deploy
 
 ```
 zip -j bootstrap.zip bin/bootstrap
 sls deploy
 ```
+
+### Auxiliary File Deployment
+
+If you require files that are not baked into your binary, follow this guide below.
+
+1. Create a .gitattributes file and add the following:
+
+   ```sh
+   .github export-ignore
+   .serverless export-ignore
+   lib export-ignore
+   spec export-ignore
+   tmp export-ignore
+
+   *.cr export-ignore
+   .keep export-ignore
+   ```
+
+   Feel free to add any other files you don't want uploaded
+
+2. Commit to git
+
+3. Run `git archive -v HEAD -o bootstrap.zip`
+
+   You should now have a `bootstrap.zip` at the top level of your project directory.
+
+4. Run `sls deploy` to deploy your zip archive to your host.
+
+### Monitoring
 
 In order to monitor executions you can check the corresponding function logs like this
 
@@ -79,86 +164,6 @@ you can also get some very simple metrics per functions (this might require addi
 ```
 sls metrics -f httpevent
 ```
-
-## Supported Frameworks
-
-Serverless.cr is looking to support crytal frameworks out of the box. We currently support Athena & Lucky but PR's are welcome!
-
-> Note: The examples below will run the frameworks HTTP server when the environment variable `SERVERLESS` is not set aka dev environments. In AWS lambda, ensure you set the env var `SERVERLESS` to `true` to ensure the lambda runtime is intialized and not the HTTP server.
-
-### Athena
-
-Your main entry file for Athena should look like this:
-
-```crystal
-require "json"
-require "Athena"
-require "serverless/lambda"
-require "serverless/ext/athena"
-
-# Run the server
-if ENV["SERVERLESS"]?
-  SLS::Lambda::Runtime.run_handler(->SLS::Ext::Athena.handler(SLS::Lambda::Context))
-else
-  ART.run
-end
-```
-
-### Lucky
-
-Open `start_server.cr` include these changes:
-
-```crystal
-require "./app"
-require "serverless/lambda"
-require "serverless/ext/lucky"
-
-Habitat.raise_if_missing_settings!
-
-if Lucky::Env.development?
-  Avram::Migrator::Runner.new.ensure_migrated!
-  Avram::SchemaEnforcer.ensure_correct_column_mappings!
-end
-
-app_server = AppServer.new
-
-if ENV["SERVERLESS"]?
-  SLS::Ext::Lucky.handler(app_server)
-else
-  Signal::INT.trap do
-    app_server.close
-  end
-
-  puts "Listening on http://#{app_server.host}:#{app_server.port}"
-  app_server.listen
-end
-```
-
-> Note: If you require auxiliary assets, ensure you zip the entire lucky folder and not just the binary. You will have to move `lib` out before zipping as zip doesn't play nice with system links.
-
-Here is a command list to get you started. These assume you are in your project directory.
-
-```sh
-# Create the binary
-docker run --rm -it -v $PWD:/app -w /app crystallang/crystal:latest crystal build src/start_server.cr -o bin/bootstrap --release --static --no-debug
-
-# Move the binary `bootstrap` to the top level
-mv ./bin/bootstrap ./
-
-# Move lib out of your dir
-mv ./lib ../
-
-# Zip everything. -r is for recurse folders
-zip -r ./
-
-# Deploy
-sls deploy
-
-# Move the lib folder back in so you don't need to reinstall shards
-mv ../lib ./
-```
-
-TODO: Update zip command to ignore `.serverless`, `.git`, `lib`, `spec`, `tasks`, `script` and any other folder that wouldn't be needed for lucky to start up.
 
 ## Example
 
