@@ -1,14 +1,14 @@
-name: crystal-lambda-sample
+name: serverless-sample
 version: 0.1.0
 
 authors:
   - Alexander Reelsen <alexander@reelsen.net>
 
 dependencies:
-  lambda_builder:
-    github: spinscale/crystal-aws-lambda
+  serverless:
+    github: andrewc910/serverless.cr
     branch: master
 
-crystal: 0.25.0
+crystal: 0.35.1
 
 license: MIT

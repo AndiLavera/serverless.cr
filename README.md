@@ -159,7 +159,7 @@ In order to monitor executions you can check the corresponding function logs lik
 sls logs -f httpevent -t
 ```
 
-you can also get some very simple metrics per functions (this might require additional permissions)
+You can also get some very simple metrics per functions (this might require additional permissions)
 
 ```
 sls metrics -f httpevent
@@ -171,8 +171,8 @@ TODO:
 If you want to get up and running with an example, run the following commands
 
 ```
-git clone https://github.com/spinscale/crystal-aws-lambda
-cd crystal-aws-lambda/example
+git clone https://github.com/andrewc910/serverless.cr
+cd serverless.cr/example
 # download dependencies
 shards
 # built binary (using docker under osx) and creates the zip file
