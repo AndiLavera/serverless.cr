@@ -75,6 +75,7 @@ module SLS::Lambda
         # Invoke the handler
         handler.call(context)
 
+        # TODO: Ensure we pass along any headers the user may of set.
         # Return the response to AWS Lambda
         res = client.post(
           "/2018-06-01/runtime/invocation/#{context.aws_request_id}/response",

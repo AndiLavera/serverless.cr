@@ -1,6 +1,7 @@
 require "http"
 require "json"
 
+# TODO: add a way to set the content type
 module SLS::Lambda
   class HTTPRequest < HTTP::Request
     getter request_context : Hash(String, JSON::Any)
