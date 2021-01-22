@@ -167,7 +167,6 @@ sls metrics -f httpevent
 
 ## Example
 
-TODO:
 If you want to get up and running with an example, run the following commands
 
 ```
@@ -181,7 +180,7 @@ make
 sls deploy
 ```
 
-This will start a sample runtime, that includes a HTTP endpoint, a scheduled event and an SQS listening event.
+This will start a sample runtime, that includes a single HTTP endpoint.
 
 ## Contributing
 
