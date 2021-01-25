@@ -1,4 +1,4 @@
-# crystal-aws-lambda
+# Serverless.cr
 
 Serverless runtime for [crystallang](https://crystal-lang.org/). Currently, only AWS Lambda is supported but PR's for other services are welcome.
 
@@ -143,13 +143,25 @@ If you require files that are not baked into your binary, follow this guide belo
 
    Feel free to add any other files you don't want uploaded
 
-2. Commit to git
+2. Build
 
-3. Run `git archive -v HEAD -o bootstrap.zip`
+   ```sh
+   docker run --rm -it -v $PWD:/app -w /app crystallang/crystal:latest crystal build src/bootstrap.cr -o bin/bootstrap --release --static --no-debug
+   ```
+
+3. Move your binary to the top level
+
+   `mv ./bin/boostrap ./`
+
+4. Commit to git
+
+5. Run `git archive -v HEAD -o bootstrap.zip`
+
+   Archive will zip the contents of the latest commit so make sure you commit beforehand.
 
    You should now have a `bootstrap.zip` at the top level of your project directory.
 
-4. Run `sls deploy` to deploy your zip archive to your host.
+6. Run `sls deploy` to deploy your zip archive to your host.
 
 ### Monitoring
 
@@ -172,10 +184,13 @@ If you want to get up and running with an example, run the following commands
 ```
 git clone https://github.com/andrewc910/serverless.cr
 cd serverless.cr/example
+
 # download dependencies
 shards
+
 # built binary (using docker under osx) and creates the zip file
 make
+
 # deploy to AWS, requires the serverless tool to be properly set up
 sls deploy
 ```
@@ -194,4 +209,4 @@ This will start a sample runtime, that includes a single HTTP endpoint.
 ## Contributors
 
 - [Andrew Crotwell](https://github.com/andrewc910) - maintainer
-- [Alexander Reelsen](https://github.com/spinscale) - creator and maintainer
+- [Alexander Reelsen](https://github.com/spinscale) - creator
