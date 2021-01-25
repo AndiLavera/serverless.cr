@@ -1,6 +1,6 @@
 # Serverless.cr
 
-Serverless runtime for [crystallang](https://crystal-lang.org/). Currently, only AWS Lambda is supported but PR's for other services are welcome.
+Serverless runtime for [crystallang](https://crystal-lang.org/). Currently, only AWS Lambda is supported. Open an Issue or PR if you think another provider should be supported!
 
 ## Installation
 
@@ -13,7 +13,7 @@ dependencies:
     branch: master
 ```
 
-Now run the the `shards` command to download the dependency. You can now create your own lambda handlers like this
+Now run the the `shards` command to download the dependency. You can now create your own lambda handlers like this:
 
 ```crystal
 require "json"
@@ -161,7 +161,7 @@ If you require files that are not baked into your binary, follow this guide belo
 
    You should now have a `bootstrap.zip` at the top level of your project directory.
 
-6. Run `sls deploy` to deploy your zip archive to your host.
+6. Run `sls deploy` to deploy
 
 ### Monitoring
 
